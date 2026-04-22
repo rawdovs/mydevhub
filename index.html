@@ -1691,6 +1691,8 @@
     // -- OPEN POST --
     async function openPost(id, refresh = false) {
       openPostId = id;
+      const nextHash = `#post=${encodeURIComponent(id)}`;
+      if (location.hash !== nextHash) history.replaceState(null, '', nextHash);
       if (!refresh) {
         document.getElementById('post-modal-bd').innerHTML = '<div class="loading"></div>';
         document.getElementById('post-modal').classList.add('open');
@@ -1716,7 +1718,7 @@
       <div class="pact-bar">
         <button class="pact ${liked ? 'liked' : ''}" onclick="toggleLike('${id}',this)">❤️ ${post.likes?.length || 0} Like</button>
         <button class="pact ${saved ? 'saved' : ''}" onclick="toggleSave('${id}',this)">${saved ? '🔖 Saqlangan' : '🔖 Saqlash'}</button>
-        <button class="pact" onclick="navigator.clipboard.writeText(location.href);toast('🔗 Nusxalandi!','g')">🔗 Ulashish</button>
+        <button class="pact" onclick="sharePost('${id}')">🔗 Ulashish</button>
         ${isOwner ? `<button class="pact delete-pact" onclick="deletePost('${id}')">O'chirish</button>` : ''}
       </div>
       <div class="cmts-wrap">
@@ -1918,7 +1920,10 @@
 
     function closeOverlay(id) {
       document.getElementById(id).classList.remove('open');
-      if (id === 'post-modal') openPostId = null;
+      if (id === 'post-modal') {
+        openPostId = null;
+        if (location.hash.startsWith('#post=')) history.replaceState(null, '', location.pathname + location.search);
+      }
     }
     document.querySelectorAll('.overlay').forEach(o => {
       o.addEventListener('click', e => { if (e.target === o) closeOverlay(o.id); });
@@ -1931,6 +1936,59 @@
       el.classList.add('show');
       clearTimeout(el._t);
       el._t = setTimeout(() => el.classList.remove('show'), 3000);
+    }
+
+    function getPostShareUrl(postId) {
+      const url = new URL(location.href);
+      url.hash = `post=${postId}`;
+      return url.toString();
+    }
+
+    async function copyText(text) {
+      if (navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (!ok) throw new Error('copy_failed');
+      return true;
+    }
+
+    async function sharePost(postId, title = document.querySelector('.post-full-title')?.textContent?.trim() || 'Post') {
+      const url = getPostShareUrl(postId);
+      try {
+        if (navigator.share) {
+          await navigator.share({ title, url });
+          toast('🔗 Ulashildi', 'g');
+          return;
+        }
+        await copyText(url);
+        toast('🔗 Havola nusxalandi!', 'g');
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
+        toast('Ulashib bo‘lmadi. Qayta urinib ko‘ring.', 'r');
+      }
+    }
+
+    async function syncPostFromHash() {
+      const hash = String(location.hash || '').replace(/^#/, '');
+      const match = hash.match(/^post=(.+)$/);
+      const postId = match && match[1] ? decodeURIComponent(match[1]) : '';
+      const modal = document.getElementById('post-modal');
+      if (!postId) {
+        if (modal.classList.contains('open')) closeOverlay('post-modal');
+        return;
+      }
+      if (openPostId !== postId || !modal.classList.contains('open')) await openPost(postId);
     }
 
     async function renderAdminPanel() {
@@ -2004,7 +2062,9 @@
       await initAuth();
       await loadPosts(true);
       await loadSidebar();
+      await syncPostFromHash();
     })();
+    window.addEventListener('hashchange', () => { syncPostFromHash(); });
   </script>
 </body>
 
