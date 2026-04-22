@@ -1417,8 +1417,7 @@
     const initials = (name = '') => {
       const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
       if (!parts.length) return 'U';
-      if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
-      return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+      return parts[0].slice(0, 1).toUpperCase();
     };
     const rt = t => Math.max(1, Math.ceil(t.split(' ').length / 200)) + " daq o'qish";
 
