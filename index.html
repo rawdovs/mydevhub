@@ -1402,7 +1402,24 @@
       return isLocalPreview ? 'http://localhost:3000/api' : `${window.location.origin}/api`;
     })();
     const COLORS = ['#D32F2F', '#1565C0', '#2E7D32', '#7B1FA2', '#E65100', '#00695C', '#AD1457'];
-    const gc = n => COLORS[n.charCodeAt(0) % COLORS.length];
+    const gc = (n = '') => {
+      const text = String(n || '').trim() || 'User';
+      let hash = 0;
+      for (let i = 0; i < text.length; i++) hash = ((hash << 5) - hash) + text.charCodeAt(i);
+      return COLORS[Math.abs(hash) % COLORS.length];
+    };
+    const avatarSeed = (entity, fallback = '') => {
+      if (entity && typeof entity === 'object') {
+        return entity._id || entity.id || entity.username || entity.telegramId || entity.name || fallback || 'User';
+      }
+      return entity || fallback || 'User';
+    };
+    const initials = (name = '') => {
+      const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) return 'U';
+      if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+      return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+    };
     const rt = t => Math.max(1, Math.ceil(t.split(' ').length / 200)) + " daq o'qish";
 
     function fd(d) {
@@ -1474,7 +1491,8 @@
       document.getElementById('login-btn').style.display = 'none';
       document.getElementById('user-chip').style.display = 'flex';
       document.getElementById('write-btn').style.display = 'block';
-      document.getElementById('u-ava').textContent = user.name[0];
+      document.getElementById('u-ava').textContent = initials(user.name);
+      document.getElementById('u-ava').style.background = gc(avatarSeed(user, user.name));
       document.getElementById('u-name').textContent = user.name.split(' ')[0];
       document.getElementById('admin-tab').style.display = user.isAdmin ? 'inline-flex' : 'none';
 
@@ -1630,9 +1648,10 @@
       const liked = currentUser && p.likes?.includes(currentUser.id);
       const saved = currentUser && p.savedBy?.includes(currentUser.id);
       const name = p.author?.name || 'Noma\'lum';
+      const seed = avatarSeed(p.author, name);
       return `<div class="post-card" onclick="openPost('${p._id}')">
     <div class="card-top">
-      <div class="ava" style="background:${gc(name)}">${name[0]}</div>
+      <div class="ava" style="background:${gc(seed)}">${initials(name)}</div>
       <div><div class="card-author">${name}</div><div class="card-date">${fd(p.createdAt)}</div></div>
       <span class="card-tag">${p.tag}</span>
     </div>
@@ -1683,13 +1702,14 @@
         const saved = currentUser && post.savedBy?.includes(currentUser.id);
         const isOwner = currentUser && post.author?._id === currentUser.id;
         const name = post.author?.name || 'Noma\'lum';
+        const seed = avatarSeed(post.author, name);
         const body = post.content.replace(/\n/g, '<br>');
 
         document.getElementById('post-modal-bd').innerHTML = `
       <span class="post-tag-badge">${post.tag}</span>
       <div class="post-full-title">${post.title}</div>
       <div class="post-full-meta">
-        <div class="ava" style="background:${gc(name)};width:42px;height:42px;font-size:16px">${name[0]}</div>
+        <div class="ava" style="background:${gc(seed)};width:42px;height:42px;font-size:16px">${initials(name)}</div>
         <div><div style="font-size:14px;font-weight:600">${name}</div>
         <div style="font-size:12px;color:var(--muted)">${fd(post.createdAt)} · ${rt(post.content)} · 👁 ${post.views}</div></div>
       </div>
@@ -1718,8 +1738,9 @@
       if (!comments.length) return `<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Hali izoh yo'q</div>`;
       return comments.map(c => {
         const n = c.author?.name || 'Noma\'lum';
+        const seed = avatarSeed(c.author, n);
         return `<div class="cmt-item">
-      <div class="ava" style="background:${gc(n)};width:32px;height:32px;font-size:12px;flex-shrink:0">${n[0]}</div>
+      <div class="ava" style="background:${gc(seed)};width:32px;height:32px;font-size:12px;flex-shrink:0">${initials(n)}</div>
       <div><div class="cmt-author">${n}</div><div class="cmt-text">${c.text}</div><div class="cmt-date">${fd(c.createdAt)}</div></div>
     </div>`;
       }).join('');
@@ -1844,7 +1865,7 @@
         const { writers } = await GET('/stats/top-writers');
         document.getElementById('writers-list').innerHTML = writers.map(w => `
       <div class="writer-item">
-        <div class="ava" style="background:${gc(w.name)};width:32px;height:32px;font-size:12px">${w.name[0]}</div>
+        <div class="ava" style="background:${gc(avatarSeed(w, w.name))};width:32px;height:32px;font-size:12px">${initials(w.name)}</div>
         <div><div class="writer-name">${w.name}</div><div class="writer-posts">${w.postCount} post</div></div>
         <button class="follow-btn ${w.followedByCurrentUser ? 'on' : ''}" onclick="toggleFollow('${w._id}',this)">${w.followedByCurrentUser ? 'Kuzatilmoqda' : 'Kuzatish'}</button>
       </div>`).join('') || '<p style="font-size:13px;color:var(--muted)">Hali yozuvchilar yo\'q</p>';
@@ -1947,7 +1968,7 @@
           <div class="admin-users">
             ${usersData.users.map(u => `
               <div class="admin-user">
-                <div class="ava" style="background:${gc(u.name || 'A')};width:36px;height:36px;font-size:13px">${(u.name || 'A')[0]}</div>
+                <div class="ava" style="background:${gc(avatarSeed(u, u.name || 'A'))};width:36px;height:36px;font-size:13px">${initials(u.name || 'A')}</div>
                 <div>
                   <div class="writer-name">${u.name || 'Noma\'lum'}</div>
                   <div class="admin-user-meta">${u.username ? '@' + u.username : 'username yo‘q'} · ${u.telegramId || 'TG ID yo‘q'}</div>
