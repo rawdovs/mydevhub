@@ -39,6 +39,50 @@
       min-height: 100vh
     }
 
+    body.mobile-blocked {
+      overflow: hidden
+    }
+
+    #mobile-blocked-screen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      padding: 24px;
+      background:
+        radial-gradient(circle at top, #8f1239 0%, #7f1d1d 45%, #4a0416 100%);
+      align-items: center;
+      justify-content: center
+    }
+
+    body.mobile-blocked #mobile-blocked-screen {
+      display: flex
+    }
+
+    .mobile-block-card {
+      width: min(100%, 420px);
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 0;
+      text-align: center;
+      box-shadow: none
+    }
+
+    .mobile-block-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 10px;
+      color: #fff
+    }
+
+    .mobile-block-text {
+      font-size: 14px;
+      line-height: 1.7;
+      color: rgba(255, 255, 255, 0.82)
+    }
+
     button,
     input,
     textarea,
@@ -1230,6 +1274,13 @@
 
 <body>
 
+  <div id="mobile-blocked-screen">
+    <div class="mobile-block-card">
+      <div class="mobile-block-title">Telefonda ochilmaydi</div>
+      <div class="mobile-block-text">Saytni kompyuter yoki noutbukda oching. Mobil qurilmalar uchun hozircha qo‘llab-quvvatlanmaydi.</div>
+    </div>
+  </div>
+
   <!-- == NAV == -->
   <nav>
     <div class="logo" onclick="setTab('feed')">MY DEV <span>HUB</span></div>
@@ -1310,13 +1361,13 @@
         <div class="f-group">
           <label class="f-label">Kategoriya</label>
           <select class="f-select" id="w-tag">
+            <option>Umumiy</option>
             <option>JavaScript</option>
             <option>React</option>
             <option>CSS</option>
             <option>Node.js</option>
             <option>TypeScript</option>
             <option>Git</option>
-            <option>Umumiy</option>
           </select>
         </div>
         <div class="f-group"><label class="f-label">Matn *</label><textarea class="f-textarea" id="w-body"
@@ -1438,7 +1489,7 @@
     let openPostId = null;
     let aiText = '';
 
-    const TAGS = ['Barchasi', 'Kuzatuvchilar', 'JavaScript', 'React', 'CSS', 'Node.js', 'TypeScript', 'Git', 'Umumiy'];
+    const TAGS = ['Barchasi', 'Umumiy', 'Kuzatuvchilar', 'JavaScript', 'React', 'CSS', 'Node.js', 'TypeScript', 'Git'];
 
     // API HELPERS
     async function api(method, path, body) {
@@ -2068,14 +2119,30 @@
     }
 
 
-    // INIT
-    (async () => {
+    let appInitialized = false;
+
+    function applyMobileBlock() {
+      const blocked = window.innerWidth <= 900;
+      document.body.classList.toggle('mobile-blocked', blocked);
+      return blocked;
+    }
+
+    async function initApp() {
+      if (appInitialized || applyMobileBlock()) return;
+      appInitialized = true;
       renderTags();
       await initAuth();
       await loadPosts(true);
       await loadSidebar();
       await syncPostFromHash();
-    })();
+    }
+
+    // INIT
+    initApp();
+    window.addEventListener('resize', () => {
+      const blocked = applyMobileBlock();
+      if (!blocked) initApp();
+    });
     window.addEventListener('hashchange', () => { syncPostFromHash(); });
   </script>
 </body>
