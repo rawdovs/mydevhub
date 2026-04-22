@@ -1673,7 +1673,7 @@
         btn.className = 'act-btn ' + (data.liked ? 'liked' : '');
         btn.innerHTML = `❤️ ${data.likeCount}`;
         // Refresh open post if visible
-        if (openPostId === id) openPost(id, true);
+        if (openPostId === id) openPost(id, true).catch(() => {});
       } catch (e) { toast(e.message, 'r'); }
     }
 
@@ -1852,39 +1852,48 @@
 
     // SIDEBAR
     async function loadSidebar() {
-      try {
-        const { posts } = await GET('/stats/trending');
+      const requests = [
+        GET('/stats/trending'),
+        GET('/stats/top-writers'),
+        currentUser ? GET('/stats/following-posts') : Promise.resolve({ posts: null })
+      ];
+      const [trendingRes, writersRes, followingRes] = await Promise.allSettled(requests);
+
+      if (trendingRes.status === 'fulfilled') {
+        const { posts } = trendingRes.value;
         document.getElementById('trend-list').innerHTML = posts.map((p, i) => `
       <div class="trend-item" onclick="openPost('${p._id}')">
         <span class="trend-n">0${i + 1}</span>
         <div><div class="trend-ttl">${p.title}</div>
         <div class="trend-mt">${p.author?.name || ''} · ❤️ ${p.likes?.length || 0}</div></div>
       </div>`).join('') || '<p style="font-size:13px;color:var(--muted)">Hali post yo\'q</p>';
-      } catch { document.getElementById('trend-list').innerHTML = '<p style="font-size:13px;color:var(--muted)">Yuklab bo\'lmadi</p>'; }
+      } else {
+        document.getElementById('trend-list').innerHTML = '<p style="font-size:13px;color:var(--muted)">Yuklab bo\'lmadi</p>';
+      }
 
-      try {
-        const { writers } = await GET('/stats/top-writers');
+      if (writersRes.status === 'fulfilled') {
+        const { writers } = writersRes.value;
         document.getElementById('writers-list').innerHTML = writers.map(w => `
       <div class="writer-item">
         <div class="ava" style="background:${gc(avatarSeed(w, w.name))};width:32px;height:32px;font-size:12px">${initials(w.name)}</div>
         <div><div class="writer-name">${w.name}</div><div class="writer-posts">${w.postCount} post</div></div>
         <button class="follow-btn ${w.followedByCurrentUser ? 'on' : ''}" onclick="toggleFollow('${w._id}',this)">${w.followedByCurrentUser ? 'Kuzatilmoqda' : 'Kuzatish'}</button>
       </div>`).join('') || '<p style="font-size:13px;color:var(--muted)">Hali yozuvchilar yo\'q</p>';
-      } catch { document.getElementById('writers-list').innerHTML = '<p style="font-size:13px;color:var(--muted)">Yuklab bo\'lmadi</p>'; }
+      } else {
+        document.getElementById('writers-list').innerHTML = '<p style="font-size:13px;color:var(--muted)">Yuklab bo\'lmadi</p>';
+      }
 
-      try {
-        if (!currentUser) {
-          document.getElementById('following-posts-list').innerHTML = '<p style="font-size:13px;color:var(--muted)">Ko‘rish uchun avval kiring</p>';
-        } else {
-          const { posts } = await GET('/stats/following-posts');
+      if (!currentUser) {
+        document.getElementById('following-posts-list').innerHTML = '<p style="font-size:13px;color:var(--muted)">Ko‘rish uchun avval kiring</p>';
+      } else if (followingRes.status === 'fulfilled') {
+        const { posts } = followingRes.value;
           document.getElementById('following-posts-list').innerHTML = posts.map((p, i) => `
       <div class="trend-item" onclick="openPost('${p._id}')">
         <span class="trend-n">0${i + 1}</span>
         <div><div class="trend-ttl">${p.title}</div>
         <div class="trend-mt">${p.author?.name || ''} · ❤️ ${p.likes?.length || 0}</div></div>
       </div>`).join('') || '<p style="font-size:13px;color:var(--muted)">Kuzatayotgan yozuvchilarda hali post yo\'q</p>';
-        }
-      } catch {
+      } else {
         document.getElementById('following-posts-list').innerHTML = '<p style="font-size:13px;color:var(--muted)">Yuklab bo\'lmadi</p>';
       }
     }
@@ -1892,14 +1901,17 @@
     async function toggleFollow(id, btn) {
       if (!currentUser) { openTgModal(); toast('Kuzatish uchun avval kiring!', 'r'); return; }
       try {
+        btn.disabled = true;
         const data = await POST(`/users/${id}/follow`);
         btn.classList.toggle('on', data.following);
         btn.textContent = data.following ? 'Kuzatilmoqda' : 'Kuzatish';
         toast(data.following ? 'Obuna bo‘ldingiz' : 'Obuna bekor qilindi', 'g');
-        await loadSidebar();
-        if (currentTab === 'feed' && activeTag === 'Kuzatuvchilar') await loadPosts(true);
+        loadSidebar().catch(() => {});
+        if (currentTab === 'feed' && activeTag === 'Kuzatuvchilar') loadPosts(true).catch(() => {});
       } catch (e) {
         toast(e.message, 'r');
+      } finally {
+        btn.disabled = false;
       }
     }
 

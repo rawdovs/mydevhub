@@ -397,6 +397,12 @@ async function notifyUser(user, text, extra = {}) {
   await sendMsg(user.telegramId, text, extra);
 }
 
+function notifyUserLater(user, text, extra = {}) {
+  Promise.resolve()
+    .then(() => notifyUser(user, text, extra))
+    .catch((error) => console.error('Notify error:', error?.message || error));
+}
+
 async function findBotSession(telegramId) {
   const sessions = await listCollection('botSessions');
   return sessions.find((item) => item.telegramId === String(telegramId)) || null;
@@ -1151,9 +1157,7 @@ app.post('/api/posts/:id/like', auth, writeLimiter, async (req, res) => {
   else likes.push(req.user._id);
   post.likes = likes;
   await setDocument('posts', post._id, post);
-  if (index < 0 && author && author._id !== req.user._id) {
-    await notifyUser(author, `${req.user.name} postingizni yoqtirdi ❤️`);
-  }
+  if (index < 0 && author && author._id !== req.user._id) notifyUserLater(author, `${req.user.name} postingizni yoqtirdi ❤️`);
   res.json({ liked: index < 0, likeCount: likes.length });
 });
 
@@ -1285,7 +1289,7 @@ app.post('/api/users/:id/follow', auth, writeLimiter, async (req, res) => {
     createdAt: nowIso(),
   }, makeId('fol'));
 
-  await notifyUser(targetUser, `${req.user.name} sizni kuzatishni boshladi 👀`);
+  notifyUserLater(targetUser, `${req.user.name} sizni kuzatishni boshladi 👀`);
   res.json({ following: true });
 });
 
